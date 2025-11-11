@@ -3,10 +3,9 @@ resource "aws_lambda_function" "image_processor" {
   runtime       = "python3.11"
   handler       = "image_processor.lambda_handler"
   role          = aws_iam_role.lambda_exec_role.arn
-  filename      = "${path.module}/../lambda.zip"
+  filename         = "${path.module}/../build/lambda.zip"
+  source_code_hash = filebase64sha256("${path.module}/../build/lambda.zip")
   timeout       = 30
-
-  source_code_hash = filebase64sha256("${path.module}/../lambda.zip")
 
   environment {
     variables = {
