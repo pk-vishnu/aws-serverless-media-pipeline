@@ -33,21 +33,3 @@ resource "aws_s3_bucket_ownership_controls" "output_ownership" {
     object_ownership = "BucketOwnerEnforced"
   }
 }
-
-# Enable versioning for input bucket
-resource "aws_s3_bucket_versioning" "input_versioning" {
-  bucket = aws_s3_bucket.input_bucket.id
-
-  versioning_configuration {
-    status = "Enabled"
-  }
-}
-
-# Enable versioning for output bucket
-resource "aws_s3_bucket_versioning" "output_versioning" {
-  bucket = aws_s3_bucket.output_bucket.id
-
-  versioning_configuration {
-    status = "Enabled"
-  }
-}
