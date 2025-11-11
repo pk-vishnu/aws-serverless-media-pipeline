@@ -8,3 +8,7 @@ build/
 *.zip
 __pycache__/
 *.pyc
+
+*.env
+.env
+app/venv/

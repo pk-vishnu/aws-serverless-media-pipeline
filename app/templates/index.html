@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>ImageLab</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-900 text-gray-100 min-h-screen flex flex-col items-center justify-center">
+
+  <h1 class="text-3xl font-bold mb-6">ImageLab</h1>
+
+  <form action="/" method="POST" enctype="multipart/form-data" class="flex flex-col items-center space-y-4">
+    <input type="file" name="file" accept="image/*" class="file-input mb-4">
+
+    <div class="grid grid-cols-2 gap-2">
+      <label><input type="checkbox" name="effects" value="gray" class="mr-2">Grayscale</label>
+      <label><input type="checkbox" name="effects" value="resize" class="mr-2">Resize 50%</label>
+      <label><input type="checkbox" name="effects" value="wm" class="mr-2">Watermark</label>
+      <label><input type="checkbox" name="effects" value="rot" class="mr-2">Rotate</label>
+      <label><input type="checkbox" name="effects" value="blur" class="mr-2">Blur</label>
+    </div>
+
+    <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-6 rounded">
+      Upload & Process
+    </button>
+  </form>
+
+</body>
+</html>
