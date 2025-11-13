@@ -2,48 +2,67 @@ import io
 import os
 
 import boto3
-import matplotlib.pyplot as plt
-import numpy as np
-from PIL import Image
+from PIL import Image, ImageDraw
 
 s3 = boto3.client("s3")
 OUTPUT_BUCKET = os.environ["OUTPUT_BUCKET"]
 
-plt.style.use("dark_background")
-
 
 def create_histogram(image, title):
     """
-    Generates a 3-channel (R, G, B) color histogram plot from a PIL Image.
+    Create a simple RGB histogram image using Pillow.
     """
+
     img_rgb = image.convert("RGB")
-    img_array = np.array(img_rgb)
+    width, height = 512, 300
+    hist_height = 200
 
-    # Create a figure
-    fig, ax = plt.subplots(figsize=(6, 4))
+    # Create output canvas
+    canvas = Image.new("RGB", (width, height), (31, 41, 55))  # bg-gray-800
+    draw = ImageDraw.Draw(canvas)
 
-    # Plot histograms for each channel
-    colors = ("r", "g", "b")
-    for i, color in enumerate(colors):
-        # Calculate histogram for the channel
-        histogram = np.histogram(img_array[..., i], bins=256, range=(0, 256))[0]
-        ax.plot(histogram, color=color, alpha=0.7)
+    # Compute histograms
+    red_hist = img_rgb.histogram()[0:256]
+    green_hist = img_rgb.histogram()[256:512]
+    blue_hist = img_rgb.histogram()[512:768]
 
-    # Style the plot
-    ax.set_title(title, fontsize=12)
-    ax.set_xlim([0, 256])
-    ax.set_yticks([])  # Hide y-axis ticks
-    ax.set_facecolor("#374151")  # bg-gray-700
-    fig.patch.set_facecolor("#1F2937")  # bg-gray-800
+    # Normalize values to fit into hist_height
+    max_val = max(max(red_hist), max(green_hist), max(blue_hist))
+    scale = hist_height / max_val
 
-    # Set border color
-    for spine in ax.spines.values():
-        spine.set_edgecolor("#4B5563")  # bg-gray-600
+    # Draw R, G, B line histograms
+    for i in range(255):
+        # red
+        draw.line(
+            [
+                (i * 2, hist_height - red_hist[i] * scale),
+                ((i + 1) * 2, hist_height - red_hist[i + 1] * scale),
+            ],
+            fill=(255, 80, 80),
+        )
+        # green
+        draw.line(
+            [
+                (i * 2, hist_height - green_hist[i] * scale),
+                ((i + 1) * 2, hist_height - green_hist[i + 1] * scale),
+            ],
+            fill=(80, 255, 80),
+        )
+        # blue
+        draw.line(
+            [
+                (i * 2, hist_height - blue_hist[i] * scale),
+                ((i + 1) * 2, hist_height - blue_hist[i + 1] * scale),
+            ],
+            fill=(80, 80, 255),
+        )
 
-    # Save plot to a in-memory buffer
+    # Add title
+    draw.text((10, hist_height + 10), title, fill=(200, 200, 200))
+
+    # Save to buffer
     buf = io.BytesIO()
-    fig.savefig(buf, format="png", bbox_inches="tight", pad_inches=0.1)
-    plt.close(fig)  # Close the figure to free memory
+    canvas.save(buf, format="PNG")
     buf.seek(0)
     return buf
 
