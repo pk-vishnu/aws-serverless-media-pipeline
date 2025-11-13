@@ -1,238 +1,16 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Serverless Image Processing Lab</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { 
-            font-family: 'JetBrains Mono', monospace; 
-            background: #000;
-            color: #fff;
-            overflow: hidden;
-        }
-        
-        /* Toggle Switch */
-        .toggle-switch {
-            position: relative;
-            width: 36px;
-            height: 20px;
-            background: #111; /* Darker background */
-            border: 1px solid #222; /* Darker border */
-            border-radius: 10px;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-        .toggle-switch::after {
-            content: '';
-            position: absolute;
-            width: 14px;
-            height: 14px;
-            background: #555; /* Darker toggle */
-            border-radius: 50%;
-            top: 2px;
-            left: 2px;
-            transition: all 0.3s;
-        }
-        input[type="checkbox"]:checked + .toggle-switch {
-            background: #0a4d3c;
-            border-color: #10b981;
-        }
-        input[type="checkbox"]:checked + .toggle-switch::after {
-            left: 18px;
-            background: #10b981;
-        }
-        
-        /* Vertical Flow */
-        .flow-node-vertical {
-            display: flex;
-            align-items: center;
-            justify-content: flex-start; /* Align content to the left */
-            gap: 8px;
-            background: #050505;
-            border: 1px solid #222;
-            padding: 10px 12px;
-            border-radius: 4px;
-            font-size: 10px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            transition: all 0.3s;
-            color: #999; /* Dimmer default color - Made brighter */
-        }
-        .flow-node-vertical.active { 
-            border-color: #10b981; 
-            box-shadow: 0 0 15px rgba(16, 185, 129, 0.2);
-            background: #0a1a15;
-            color: #10b981;
-        }
-        
-        /* Placeholder for icons in the flow node */
-        .node-icon {
-            width: 20px;
-            height: 20px;
-            background: #111;
-            border: 1px dashed #333;
-            border-radius: 3px;
-            flex-shrink: 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 9px;
-            color: #444;
-        }
-        .flow-node-vertical.active .node-icon {
-            background: rgba(16, 185, 129, 0.1);
-            border-color: rgba(16, 185, 129, 0.4);
-            color: rgba(16, 185, 129, 0.5);
-        }
-        
-        .flow-arrow-vertical {
-            width: 2px;
-            height: 24px;
-            background: #222;
-            margin: 0 auto;
-            position: relative;
-        }
-        .flow-arrow-vertical::after {
-            content: '';
-            position: absolute;
-            bottom: -5px;
-            left: -3px;
-            width: 0;
-            height: 0;
-            border-left: 4px solid transparent;
-            border-right: 4px solid transparent;
-            border-top: 5px solid #222;
-        }
-        .flow-arrow-vertical.active {
-            background: #10b981;
-            animation: flowPulse 2s infinite;
-        }
-        .flow-arrow-vertical.active::after { border-top-color: #10b981; }
-        
-        @keyframes flowPulse {
-            0%, 100% { opacity: 0.5; }
-            50% { opacity: 1; }
-        }
-        
-        /* Spinner */
-        .spinner {
-            border: 2px solid #333;
-            border-top-color: #10b981; /* Spinner color to match new button text */
-            border-radius: 50%;
-            width: 14px;
-            height: 14px;
-            animation: spin 0.8s linear infinite;
-        }
-        /* Spinner for loading state */
-        .spinner-loading {
-            border-top-color: #fff;
-        }
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-        
-        /* Grid Background */
-        .grid-bg {
-            background-image: 
-                linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
-            background-size: 30px 30px; /* Smaller grid */
-        }
-        
-        /* Upload Area */
-        .upload-area {
-            border: 2px dashed #222;
-            transition: all 0.3s;
-            height: 100%;
-        }
-        .upload-area:hover {
-            border-color: #444;
-            background: #0a0a0a;
-        }
-        .upload-area.drag-over {
-            border-color: #10b981;
-            background: rgba(16, 185, 129, 0.05);
-        }
-        
-        /* Results Grid */
-        .result-card {
-            background: #0a0a0a;
-            border: 1px solid #222;
-            transition: border-color 0.3s;
-        }
-        .result-card:hover { border-color: #444; }
-        
-        /* Status Badge */
-        .status-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            padding: 3px 10px;
-            background: #050505;
-            border: 1px solid #222;
-            border-radius: 10px;
-            font-size: 9px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-        .status-badge.success { border-color: #10b981; color: #10b981; }
-        .status-dot {
-            width: 5px;
-            height: 5px;
-            border-radius: 50%;
-            background: currentColor;
-        }
-        
-        /* Full viewport layout */
-        .main-container {
-            height: 100vh;
-            display: flex;
-        }
-        .content-area {
-            flex: 1;
-            overflow-y: auto;
-            padding: 24px;
-            display: flex;
-            flex-direction: column;
-        }
-        .flow-sidebar {
-            width: 220px; /* Widened sidebar */
-            border-left: 1px solid #222;
-            background: #000;
-            padding: 24px 16px;
-            overflow-y: auto;
-        }
-        
-        /* Image sizing */
-        /* REMOVED .result-img rule */
-
-        /* Operation item (no icon) */
-        .operation-item:hover {
-            background: #0a0a0a;
-        }
-        /* Updated to use peer-checked sibling selector */
-        input[type="checkbox"].peer:checked ~ .toggle-switch {
-            background: #0a4d3c;
-            border-color: #10b981;
-        }
-        input[type="checkbox"].peer:checked ~ .toggle-switch::after {
-            left: 18px;
-            background: #10b981;
-        }
-        input[type="checkbox"].peer:checked ~ div .operation-index,
-        input[type="checkbox"].peer:checked ~ div .operation-text {
-            color: #10b981;
-        }
-    </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Serverless Image Processing Lab</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
-<body class="grid-bg">
 
+<body class="grid-bg">
     <div class="main-container">
-        
         <!-- Main Content Area -->
         <div class="content-area">
             
@@ -483,99 +261,25 @@
         </div>
     </div>
 
-    <script>
-        // File upload handling
-        const uploadArea = document.getElementById('upload-area');
-        const fileInput = document.getElementById('file');
-        const uploadPrompt = document.getElementById('upload-prompt');
-        const fileInfo = document.getElementById('file-info');
-        const fileName = document.getElementById('file-name');
+<script src="{{ url_for('static', filename='js/main.js') }}"></script>
 
-        if (uploadArea && fileInput) {
-            uploadArea.addEventListener('click', () => fileInput.click());
-            
-            uploadArea.addEventListener('dragover', (e) => {
-                e.preventDefault();
-                uploadArea.classList.add('drag-over');
-            });
-            
-            uploadArea.addEventListener('dragleave', () => {
-                uploadArea.classList.remove('drag-over');
-            });
-            
-            uploadArea.addEventListener('drop', (e) => {
-                e.preventDefault();
-                uploadArea.classList.remove('drag-over');
-                if (e.dataTransfer.files.length) {
-                    fileInput.files = e.dataTransfer.files;
-                    updateFileDisplay();
-                }
-            });
-            
-            fileInput.addEventListener('change', updateFileDisplay);
-            
-            function updateFileDisplay() {
-                if (fileInput.files.length) {
-                    fileName.textContent = fileInput.files[0].name;
-                    uploadPrompt.classList.add('hidden');
-                    fileInfo.classList.remove('hidden');
-                }
-            }
-        }
+<script>
+    {% if original_url and processed_url and original_analysis_url and processed_analysis_url %}
+    window.addEventListener('load', function() {
+        animateFlow();
+    });
+    {% endif %}
 
-        // Form submission with animation
-        const form = document.getElementById('upload-form');
-        if (form) {
-            form.addEventListener('submit', function() {
-                const button = document.getElementById('submit-button');
-                const buttonText = document.getElementById('button-text');
-                const spinner = button.querySelector('.spinner');
-                
-                button.disabled = true;
-                button.classList.remove('hover:bg-green-600');
-                button.classList.add('bg-gray-700', 'text-white');
-                buttonText.textContent = 'PROCESSING';
-                spinner.classList.remove('hidden');
-                spinner.classList.add('spinner-loading');
-                
-                // Animate flow diagram
-                animateFlow();
-            });
-        }
-
-        // Flow diagram animation
-        function animateFlow() {
-            const nodes = ['node-s3', 'node-eventbridge', 'node-stepfn', 'node-lambda1', 'node-lambda2', 'node-output'];
-            const arrows = ['arrow-1', 'arrow-2', 'arrow-3', 'arrow-4', 'arrow-5'];
-            
-            nodes.forEach((id, index) => {
-                setTimeout(() => {
-                    document.getElementById(id)?.classList.add('active');
-                    if (arrows[index]) {
-                        document.getElementById(arrows[index])?.classList.add('active');
-                    }
-                }, index * 400);
-            });
-        }
-
-        // Check if results page and animate flow
-        {% if original_url and processed_url and original_analysis_url and processed_analysis_url %}
-        window.addEventListener('load', function() {
-            animateFlow();
-        });
-        {% endif %}
-
-        // Idle animation on upload page
-        {% if not (original_url and processed_url and original_analysis_url and processed_analysis_url) %}
-        setInterval(() => {
-            const firstNode = document.getElementById('node-s3');
-            if (firstNode && !firstNode.classList.contains('active')) {
-                firstNode.style.opacity = '0.5';
-                setTimeout(() => firstNode.style.opacity = '1', 500);
-            }
-        }, 3000);
-        {% endif %}
-    </script>
+    {% if not (original_url and processed_url and original_analysis_url and processed_analysis_url) %}
+    setInterval(() => {
+        const firstNode = document.getElementById('node-s3');
+        if (firstNode && !firstNode.classList.contains('active')) {
+            firstNode.style.opacity = '0.5';
+            setTimeout(() => firstNode.style.opacity = '1', 500);
+        }
+    }, 3000);
+    {% endif %}
+</script>
 
 </body>
 </html>
