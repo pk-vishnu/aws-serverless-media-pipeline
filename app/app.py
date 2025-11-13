@@ -53,6 +53,7 @@ def index():
         if file:
             # Generate a unique key for S3
             unique_key = s3_utils.get_unique_key(file.filename)
+            base_name, extension = os.path.splitext(unique_key)
 
             # join the list into a comma-separated string ---
             operations_string = ",".join(valid_operations)
@@ -60,7 +61,7 @@ def index():
             # Metadata to pass to Lambda
             metadata = {"operations": operations_string}
 
-            # 1. Upload to the INPUT bucket
+            # Upload to the INPUT bucket
             success = s3_utils.upload_to_s3(file, INPUT_BUCKET, unique_key, metadata)
 
             if not success:
@@ -68,21 +69,15 @@ def index():
                 return redirect(request.url)
 
             # 2. Upload successful, now wait for processing
-            # --- DEFINE ALL EXPECTED OUTPUT KEYS ---
-            # Based on your app.py and sfn.tf
-            processed_key = f"processed/{unique_key}"
-            # Based on sfn.tf: 'analysis/{}_original_hist.png'
+            processed_key = f"processed/{base_name}_combined{extension}"
             original_analysis_key = f"analysis/{unique_key}_original_hist.png"
-            # Based on sfn.tf: 'analysis/{}_processed_hist.png' (where {} is the processed_key)
             processed_analysis_key = f"analysis/{processed_key}_processed_hist.png"
 
             try:
-                # 3. Wait for ALL THREE files to be created by the Step Function
                 s3_utils.wait_for_object(OUTPUT_BUCKET, processed_key)
                 s3_utils.wait_for_object(OUTPUT_BUCKET, original_analysis_key)
                 s3_utils.wait_for_object(OUTPUT_BUCKET, processed_analysis_key)
 
-                # 4. Get presigned URLs for all four images
                 original_url = s3_utils.get_presigned_url(INPUT_BUCKET, unique_key)
                 processed_url = s3_utils.get_presigned_url(OUTPUT_BUCKET, processed_key)
                 original_analysis_url = s3_utils.get_presigned_url(
@@ -103,9 +98,17 @@ def index():
                     flash("Error generating links to your images.", "error")
                     return redirect(url_for("index"))
 
-                # 5. Re-render the same page with results
+                # Get URLs for independent files
+                independent_urls = []
+                for op in valid_operations:
+                    ind_key = f"processed/{base_name}_{op}{extension}"
+                    ind_url = s3_utils.get_presigned_url(OUTPUT_BUCKET, ind_key)
+                    if ind_url:
+                        independent_urls.append(
+                            {"name": SUPPORTED_OPERATIONS.get(op, op), "url": ind_url}
+                        )
 
-                # Get display names for the template
+                # Re-render the same page with results
                 display_names = [
                     SUPPORTED_OPERATIONS.get(op, op) for op in valid_operations
                 ]
@@ -119,6 +122,7 @@ def index():
                     original_analysis_url=original_analysis_url,
                     processed_analysis_url=processed_analysis_url,
                     operation_name=operation_name_str,
+                    independent_urls=independent_urls,
                 )
 
             except TimeoutError:

@@ -275,52 +275,74 @@
                     </div>
                 </div>
 
-                <!-- 2x2 Grid: Images & Analysis -->
-                <div class="grid grid-cols-2 gap-4 flex-1 overflow-hidden">
-                    
-                    <!-- Original Image -->
-                    <div class="result-card rounded-sm overflow-hidden flex flex-col">
-                        <div class="border-b border-gray-800 px-4 py-3 flex items-center justify-between">
-                            <span class="text-xs text-gray-400 uppercase tracking-wider">INPUT</span>
-                            <a href="{{ original_url }}" target="_blank" class="text-xs text-gray-500 hover:text-green-500 transition-colors">FULLSCREEN →</a>
+                <!-- Main Results Area: 2x2 Grid + Independent Effects -->
+                <div class="flex-1 flex gap-4 overflow-hidden">
+
+                    <!-- 2x2 Grid: Images & Analysis -->
+                    <div class="grid grid-cols-2 gap-4 flex-1 overflow-hidden">
+                        
+                        <!-- Original Image -->
+                        <div class="result-card rounded-sm overflow-hidden flex flex-col">
+                            <div class="border-b border-gray-800 px-4 py-3 flex items-center justify-between">
+                                <span class="text-xs text-gray-400 uppercase tracking-wider">INPUT</span>
+                                <a href="{{ original_url }}" target="_blank" class="text-xs text-gray-500 hover:text-green-500 transition-colors">FULLSCREEN →</a>
+                            </div>
+                            <div class="p-4 bg-black flex-1 flex items-center justify-center">
+                                <img src="{{ original_url }}" alt="Original" class="max-w-full max-h-full object-contain rounded-sm border border-gray-800">
+                            </div>
                         </div>
-                        <div class="p-4 bg-black flex-1 flex items-center justify-center">
-                            <img src="{{ original_url }}" alt="Original" class="max-w-full max-h-full object-contain rounded-sm border border-gray-800">
+
+                        <!-- Processed Image -->
+                        <div class="result-card rounded-sm overflow-hidden flex flex-col">
+                            <div class="border-b border-gray-800 px-4 py-3 flex items-center justify-between">
+                                <span class="text-xs text-gray-400 uppercase tracking-wider">OUTPUT (COMBINED)</span>
+                                <a href="{{ processed_url }}" target="_blank" class="text-xs text-gray-500 hover:text-green-500 transition-colors">FULLSCREEN →</a>
+                            </div>
+                            <div class="p-4 bg-black flex-1 flex items-center justify-center">
+                                <img src="{{ processed_url }}" alt="Processed" class="max-w-full max-h-full object-contain rounded-sm border border-green-700">
+                            </div>
+                        </div>
+
+                        <!-- Original Analysis -->
+                        <div class="result-card rounded-sm overflow-hidden flex flex-col">
+                            <div class="border-b border-gray-800 px-4 py-3 flex items-center justify-between">
+                                <span class="text-xs text-gray-400 uppercase tracking-wider">INPUT ANALYSIS</span>
+                                <a href="{{ original_analysis_url }}" target="_blank" class="text-xs text-gray-500 hover:text-green-500 transition-colors">FULLSCREEN →</a>
+                            </div>
+                            <div class="p-4 bg-black flex-1 flex items-center justify-center">
+                                <img src="{{ original_analysis_url }}" alt="Original Analysis" class="max-w-full max-h-full object-contain rounded-sm border border-gray-800">
+                            </div>
+                        </div>
+
+                        <!-- Processed Analysis -->
+                        <div class="result-card rounded-sm overflow-hidden flex flex-col">
+                            <div class="border-b border-gray-800 px-4 py-3 flex items-center justify-between">
+                                <span class="text-xs text-gray-400 uppercase tracking-wider">OUTPUT ANALYSIS</span>
+                                <a href="{{ processed_analysis_url }}" target="_blank" class="text-xs text-gray-500 hover:text-green-500 transition-colors">FULLSCREEN →</a>
+                            </div>
+                            <div class="p-4 bg-black flex-1 flex items-center justify-center">
+                                <img src="{{ processed_analysis_url }}" alt="Processed Analysis" class="max-w-full max-h-full object-contain rounded-sm border border-green-700">
+                            </div>
                         </div>
                     </div>
 
-                    <!-- Processed Image -->
-                    <div class="result-card rounded-sm overflow-hidden flex flex-col">
-                        <div class="border-b border-gray-800 px-4 py-3 flex items-center justify-between">
-                            <span class="text-xs text-gray-400 uppercase tracking-wider">OUTPUT</span>
-                            <a href="{{ processed_url }}" target="_blank" class="text-xs text-gray-500 hover:text-green-500 transition-colors">FULLSCREEN →</a>
-                        </div>
-                        <div class="p-4 bg-black flex-1 flex items-center justify-center">
-                            <img src="{{ processed_url }}" alt="Processed" class="max-w-full max-h-full object-contain rounded-sm border border-green-700">
-                        </div>
-                    </div>
-
-                    <!-- Original Analysis -->
-                    <div class="result-card rounded-sm overflow-hidden flex flex-col">
-                        <div class="border-b border-gray-800 px-4 py-3 flex items-center justify-between">
-                            <span class="text-xs text-gray-400 uppercase tracking-wider">INPUT ANALYSIS</span>
-                            <a href="{{ original_analysis_url }}" target="_blank" class="text-xs text-gray-500 hover:text-green-500 transition-colors">FULLSCREEN →</a>
-                        </div>
-                        <div class="p-4 bg-black flex-1 flex items-center justify-center">
-                            <img src="{{ original_analysis_url }}" alt="Original Analysis" class="max-w-full max-h-full object-contain rounded-sm border border-gray-800">
+                    <!-- Independent Effects Column -->
+                    {% if independent_urls %}
+                    <div class="w-48 flex-shrink-0 flex flex-col">
+                        <span class="text-xs text-gray-400 uppercase tracking-wider px-2 pt-1 pb-2">Indep. Effects</span>
+                        <div class="flex-1 bg-black border border-gray-800 rounded-sm p-3 overflow-y-auto space-y-3">
+                            {% for item in independent_urls %}
+                            <div class="block">
+                                <p class="text-xs text-gray-500 mb-1.5 truncate" title="{{ item.name }}">{{ item.name }}</p>
+                                <a href="{{ item.url }}" target="_blank" 
+                                   class="block rounded-sm border border-gray-800 hover:border-green-500 overflow-hidden transition-colors bg-black aspect-video flex items-center justify-center">
+                                    <img src="{{ item.url }}" alt="{{ item.name }}" class="max-w-full max-h-full object-contain">
+                                </a>
+                            </div>
+                            {% endfor %}
                         </div>
                     </div>
-
-                    <!-- Processed Analysis -->
-                    <div class="result-card rounded-sm overflow-hidden flex flex-col">
-                        <div class="border-b border-gray-800 px-4 py-3 flex items-center justify-between">
-                            <span class="text-xs text-gray-400 uppercase tracking-wider">OUTPUT ANALYSIS</span>
-                            <a href="{{ processed_analysis_url }}" target="_blank" class="text-xs text-gray-500 hover:text-green-500 transition-colors">FULLSCREEN →</a>
-                        </div>
-                        <div class="p-4 bg-black flex-1 flex items-center justify-center">
-                            <img src="{{ processed_analysis_url }}" alt="Processed Analysis" class="max-w-full max-h-full object-contain rounded-sm border border-green-700">
-                        </div>
-                    </div>
+                    {% endif %}
                 </div>
             </div>
 
