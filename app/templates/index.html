@@ -42,11 +42,9 @@
 
 
         <!-- 
-          This is the main conditional block.
-          If processed_url exists, show results.
-          Otherwise, show the upload form.
+          --- Check for all four image URLs (original, processed, original_analysis, processed_analysis)---
         -->
-        {% if original_url and processed_url %}
+        {% if original_url and processed_url and original_analysis_url and processed_analysis_url %}
 
         <!-- ===== RESULT DISPLAY ===== -->
         <div id="results">
@@ -69,7 +67,8 @@
                     </h2>
                     <div class="p-4">
                         <img src="{{ original_url }}" alt="Original unprocessed image"
-                             class="w-full h-auto object-contain rounded-md border-2 border-gray-700">
+                             class="w-full h-auto object-contain rounded-md border-2 border-gray-700"
+                             style="min-height: 200px;"> <!-- Added min-height for consistency -->
                     </div>
                     <div class="p-4 bg-gray-800">
                         <a href="{{ original_url }}" target="_blank"
@@ -86,7 +85,8 @@
                     </h2>
                     <div class="p-4">
                         <img src="{{ processed_url }}" alt="Processed image"
-                             class="w-full h-auto object-contain rounded-md border-2 border-indigo-500">
+                             class="w-full h-auto object-contain rounded-md border-2 border-indigo-500"
+                             style="min-height: 200px;"> <!-- Added min-height for consistency -->
                     </div>
                     <div class="p-4 bg-gray-800">
                         <a href="{{ processed_url }}" target="_blank"
@@ -96,6 +96,48 @@
                     </div>
                 </div>
             </div>
+
+            <!-- ===== NEW: ANALYSIS RESULTS ===== -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-6xl mx-auto mt-8 pt-8 border-t border-gray-700">
+                
+                <!-- Original Image Analysis -->
+                <div class="bg-gray-800 rounded-lg shadow-2xl overflow-hidden">
+                    <h2 class="text-2xl font-semibold text-center py-4 bg-gray-700">
+                        Original Image Analysis
+                    </h2>
+                    <div class="p-4">
+                        <img src="{{ original_analysis_url }}" alt="Original image analysis (histogram)"
+                             class="w-full h-auto object-contain rounded-md border-2 border-gray-700"
+                             style="min-height: 200px;">
+                    </div>
+                    <div class="p-4 bg-gray-800">
+                        <a href="{{ original_analysis_url }}" target="_blank"
+                           class="block w-full text-center py-2 px-4 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-medium transition-colors">
+                            View Full Size Analysis
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Processed Image Analysis -->
+                <div class="bg-gray-800 rounded-lg shadow-2xl overflow-hidden">
+                    <h2 class="text-2xl font-semibold text-center py-4 bg-gray-700">
+                        Processed Image Analysis
+                    </h2>
+                    <div class="p-4">
+                        <img src="{{ processed_analysis_url }}" alt="Processed image analysis (histogram)"
+                             class="w-full h-auto object-contain rounded-md border-2 border-indigo-500"
+                             style="min-height: 200px;">
+                    </div>
+                    <div class="p-4 bg-gray-800">
+                        <a href="{{ processed_analysis_url }}" target="_blank"
+                           class="block w-full text-center py-2 px-4 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-medium transition-colors">
+                            View Full Size Analysis
+                        </a>
+                    </div>
+                </div>
+            </div>
+            <!-- ===== END: ANALYSIS RESULTS ===== -->
+
 
             <!-- Back Button -->
             <div class="text-center mt-12">

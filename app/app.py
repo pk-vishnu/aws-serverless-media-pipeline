@@ -68,17 +68,38 @@ def index():
                 return redirect(request.url)
 
             # 2. Upload successful, now wait for processing
+            # --- DEFINE ALL EXPECTED OUTPUT KEYS ---
+            # Based on your app.py and sfn.tf
             processed_key = f"processed/{unique_key}"
+            # Based on sfn.tf: 'analysis/{}_original_hist.png'
+            original_analysis_key = f"analysis/{unique_key}_original_hist.png"
+            # Based on sfn.tf: 'analysis/{}_processed_hist.png' (where {} is the processed_key)
+            processed_analysis_key = f"analysis/{processed_key}_processed_hist.png"
 
             try:
-                # 3. Wait for the Lambda to create the processed file
+                # 3. Wait for ALL THREE files to be created by the Step Function
                 s3_utils.wait_for_object(OUTPUT_BUCKET, processed_key)
+                s3_utils.wait_for_object(OUTPUT_BUCKET, original_analysis_key)
+                s3_utils.wait_for_object(OUTPUT_BUCKET, processed_analysis_key)
 
-                # 4. Get presigned URLs for both images
+                # 4. Get presigned URLs for all four images
                 original_url = s3_utils.get_presigned_url(INPUT_BUCKET, unique_key)
                 processed_url = s3_utils.get_presigned_url(OUTPUT_BUCKET, processed_key)
+                original_analysis_url = s3_utils.get_presigned_url(
+                    OUTPUT_BUCKET, original_analysis_key
+                )
+                processed_analysis_url = s3_utils.get_presigned_url(
+                    OUTPUT_BUCKET, processed_analysis_key
+                )
 
-                if not original_url or not processed_url:
+                if not all(
+                    [
+                        original_url,
+                        processed_url,
+                        original_analysis_url,
+                        processed_analysis_url,
+                    ]
+                ):
                     flash("Error generating links to your images.", "error")
                     return redirect(url_for("index"))
 
@@ -95,12 +116,14 @@ def index():
                     operations=SUPPORTED_OPERATIONS,
                     original_url=original_url,
                     processed_url=processed_url,
+                    original_analysis_url=original_analysis_url,
+                    processed_analysis_url=processed_analysis_url,
                     operation_name=operation_name_str,
                 )
 
             except TimeoutError:
                 flash(
-                    f"Image processing timed out. Please try again. (Waited for: {processed_key})",
+                    f"Image processing timed out. Please try again. (Waited for: {processed_key}, {original_analysis_key}, or {processed_analysis_key})",
                     "error",
                 )
                 return redirect(url_for("index"))
