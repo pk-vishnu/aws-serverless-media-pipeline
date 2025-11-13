@@ -1,231 +1,558 @@
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Image Lab</title>
+    <title>Serverless Image Processing Lab</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Inter', sans-serif; }
-        /* Simple spinner */
-        .spinner {
-            border: 2px solid rgba(255,255,255,0.3);
-            border-top-color: #fff;
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: 'JetBrains Mono', monospace; 
+            background: #000;
+            color: #fff;
+            overflow: hidden;
+        }
+        
+        /* Toggle Switch */
+        .toggle-switch {
+            position: relative;
+            width: 36px;
+            height: 20px;
+            background: #111; /* Darker background */
+            border: 1px solid #222; /* Darker border */
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .toggle-switch::after {
+            content: '';
+            position: absolute;
+            width: 14px;
+            height: 14px;
+            background: #555; /* Darker toggle */
             border-radius: 50%;
-            width: 1rem;
-            height: 1rem;
-            animation: spin 1s linear infinite;
+            top: 2px;
+            left: 2px;
+            transition: all 0.3s;
+        }
+        input[type="checkbox"]:checked + .toggle-switch {
+            background: #0a4d3c;
+            border-color: #10b981;
+        }
+        input[type="checkbox"]:checked + .toggle-switch::after {
+            left: 18px;
+            background: #10b981;
+        }
+        
+        /* Vertical Flow */
+        .flow-node-vertical {
+            display: flex;
+            align-items: center;
+            justify-content: flex-start; /* Align content to the left */
+            gap: 8px;
+            background: #050505;
+            border: 1px solid #222;
+            padding: 10px 12px;
+            border-radius: 4px;
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            transition: all 0.3s;
+            color: #999; /* Dimmer default color - Made brighter */
+        }
+        .flow-node-vertical.active { 
+            border-color: #10b981; 
+            box-shadow: 0 0 15px rgba(16, 185, 129, 0.2);
+            background: #0a1a15;
+            color: #10b981;
+        }
+        
+        /* Placeholder for icons in the flow node */
+        .node-icon {
+            width: 20px;
+            height: 20px;
+            background: #111;
+            border: 1px dashed #333;
+            border-radius: 3px;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 9px;
+            color: #444;
+        }
+        .flow-node-vertical.active .node-icon {
+            background: rgba(16, 185, 129, 0.1);
+            border-color: rgba(16, 185, 129, 0.4);
+            color: rgba(16, 185, 129, 0.5);
+        }
+        
+        .flow-arrow-vertical {
+            width: 2px;
+            height: 24px;
+            background: #222;
+            margin: 0 auto;
+            position: relative;
+        }
+        .flow-arrow-vertical::after {
+            content: '';
+            position: absolute;
+            bottom: -5px;
+            left: -3px;
+            width: 0;
+            height: 0;
+            border-left: 4px solid transparent;
+            border-right: 4px solid transparent;
+            border-top: 5px solid #222;
+        }
+        .flow-arrow-vertical.active {
+            background: #10b981;
+            animation: flowPulse 2s infinite;
+        }
+        .flow-arrow-vertical.active::after { border-top-color: #10b981; }
+        
+        @keyframes flowPulse {
+            0%, 100% { opacity: 0.5; }
+            50% { opacity: 1; }
+        }
+        
+        /* Spinner */
+        .spinner {
+            border: 2px solid #333;
+            border-top-color: #10b981; /* Spinner color to match new button text */
+            border-radius: 50%;
+            width: 14px;
+            height: 14px;
+            animation: spin 0.8s linear infinite;
+        }
+        /* Spinner for loading state */
+        .spinner-loading {
+            border-top-color: #fff;
         }
         @keyframes spin {
             to { transform: rotate(360deg); }
         }
+        
+        /* Grid Background */
+        .grid-bg {
+            background-image: 
+                linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+            background-size: 30px 30px; /* Smaller grid */
+        }
+        
+        /* Upload Area */
+        .upload-area {
+            border: 2px dashed #222;
+            transition: all 0.3s;
+            height: 100%;
+        }
+        .upload-area:hover {
+            border-color: #444;
+            background: #0a0a0a;
+        }
+        .upload-area.drag-over {
+            border-color: #10b981;
+            background: rgba(16, 185, 129, 0.05);
+        }
+        
+        /* Results Grid */
+        .result-card {
+            background: #0a0a0a;
+            border: 1px solid #222;
+            transition: border-color 0.3s;
+        }
+        .result-card:hover { border-color: #444; }
+        
+        /* Status Badge */
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 3px 10px;
+            background: #050505;
+            border: 1px solid #222;
+            border-radius: 10px;
+            font-size: 9px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .status-badge.success { border-color: #10b981; color: #10b981; }
+        .status-dot {
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+            background: currentColor;
+        }
+        
+        /* Full viewport layout */
+        .main-container {
+            height: 100vh;
+            display: flex;
+        }
+        .content-area {
+            flex: 1;
+            overflow-y: auto;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+        }
+        .flow-sidebar {
+            width: 220px; /* Widened sidebar */
+            border-left: 1px solid #222;
+            background: #000;
+            padding: 24px 16px;
+            overflow-y: auto;
+        }
+        
+        /* Image sizing */
+        /* REMOVED .result-img rule */
+
+        /* Operation item (no icon) */
+        .operation-item:hover {
+            background: #0a0a0a;
+        }
+        /* Updated to use peer-checked sibling selector */
+        input[type="checkbox"].peer:checked ~ .toggle-switch {
+            background: #0a4d3c;
+            border-color: #10b981;
+        }
+        input[type="checkbox"].peer:checked ~ .toggle-switch::after {
+            left: 18px;
+            background: #10b981;
+        }
+        input[type="checkbox"].peer:checked ~ div .operation-index,
+        input[type="checkbox"].peer:checked ~ div .operation-text {
+            color: #10b981;
+        }
     </style>
 </head>
-<body class="bg-gray-900 text-gray-100 min-h-screen">
+<body class="grid-bg">
 
-    <div class="container mx-auto px-4 py-12">
+    <div class="main-container">
         
-        <!-- Flash messages -->
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                <div class="max-w-6xl mx-auto mb-6">
-                {% for category, message in messages %}
-                <div class="bg-red-800 border border-red-700 text-red-100 px-4 py-3 rounded-lg relative" role="alert">
-                    <strong class="font-bold">Error:</strong>
-                    <span class="block sm:inline">{{ message }}</span>
-                </div>
-                {% endfor %}
-                </div>
-            {% endif %}
-        {% endwith %}
+        <!-- Main Content Area -->
+        <div class="content-area">
+            
+            <!-- Flash Messages -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <div class="mb-4">
+                    {% for category, message in messages %}
+                    <div class="bg-red-950 border border-red-800 text-red-300 px-3 py-2 rounded-sm text-xs" role="alert">
+                        <span class="opacity-50">ERROR:</span> {{ message }}
+                    </div>
+                    {% endfor %}
+                    </div>
+                {% endif %}
+            {% endwith %}
 
+            {% if original_url and processed_url and original_analysis_url and processed_analysis_url %}
 
-        <!-- 
-          --- Check for all four image URLs (original, processed, original_analysis, processed_analysis)---
-        -->
-        {% if original_url and processed_url and original_analysis_url and processed_analysis_url %}
-
-        <!-- ===== RESULT DISPLAY ===== -->
-        <div id="results">
-            <header class="text-center mb-10">
-                <h1 class="text-4xl font-bold text-indigo-400 mb-2">
-                    Image Lab Results
-                </h1>
-                <p class="text-xl text-gray-400">
-                    Operation: <span class="font-semibold text-indigo-300">{{ operation_name }}</span>
-                </p>
-            </header>
-
-            <!-- Image Comparison -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-6xl mx-auto">
+            <!-- ===== RESULTS VIEW ===== -->
+            <div class="flex-1 flex flex-col overflow-hidden"> 
                 
-                <!-- Original Image -->
-                <div class="bg-gray-800 rounded-lg shadow-2xl overflow-hidden">
-                    <h2 class="text-2xl font-semibold text-center py-4 bg-gray-700">
-                        Original Image
-                    </h2>
-                    <div class="p-4">
-                        <img src="{{ original_url }}" alt="Original unprocessed image"
-                             class="w-full h-auto object-contain rounded-md border-2 border-gray-700"
-                             style="min-height: 200px;"> <!-- Added min-height for consistency -->
+                <!-- Header -->
+                <div class="flex items-center justify-between mb-6 flex-shrink-0">
+                    <div>
+                        <h1 class="text-2xl font-medium">
+                            PROCESSING <span class="text-green-500">COMPLETE</span>
+                        </h1>
+                        <p class="text-xs text-gray-500 mt-1">
+                            {{ operation_name }}
+                        </p>
                     </div>
-                    <div class="p-4 bg-gray-800">
-                        <a href="{{ original_url }}" target="_blank"
-                           class="block w-full text-center py-2 px-4 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-medium transition-colors">
-                            View Full Size
-                        </a>
-                    </div>
-                </div>
-
-                <!-- Processed Image -->
-                <div class="bg-gray-800 rounded-lg shadow-2xl overflow-hidden">
-                    <h2 class="text-2xl font-semibold text-center py-4 bg-gray-700">
-                        Processed Image
-                    </h2>
-                    <div class="p-4">
-                        <img src="{{ processed_url }}" alt="Processed image"
-                             class="w-full h-auto object-contain rounded-md border-2 border-indigo-500"
-                             style="min-height: 200px;"> <!-- Added min-height for consistency -->
-                    </div>
-                    <div class="p-4 bg-gray-800">
-                        <a href="{{ processed_url }}" target="_blank"
-                           class="block w-full text-center py-2 px-4 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-medium transition-colors">
-                            View Full Size
-                        </a>
-                    </div>
-                </div>
-            </div>
-
-            <!-- ===== NEW: ANALYSIS RESULTS ===== -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-6xl mx-auto mt-8 pt-8 border-t border-gray-700">
-                
-                <!-- Original Image Analysis -->
-                <div class="bg-gray-800 rounded-lg shadow-2xl overflow-hidden">
-                    <h2 class="text-2xl font-semibold text-center py-4 bg-gray-700">
-                        Original Image Analysis
-                    </h2>
-                    <div class="p-4">
-                        <img src="{{ original_analysis_url }}" alt="Original image analysis (histogram)"
-                             class="w-full h-auto object-contain rounded-md border-2 border-gray-700"
-                             style="min-height: 200px;">
-                    </div>
-                    <div class="p-4 bg-gray-800">
-                        <a href="{{ original_analysis_url }}" target="_blank"
-                           class="block w-full text-center py-2 px-4 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-medium transition-colors">
-                            View Full Size Analysis
-                        </a>
-                    </div>
-                </div>
-
-                <!-- Processed Image Analysis -->
-                <div class="bg-gray-800 rounded-lg shadow-2xl overflow-hidden">
-                    <h2 class="text-2xl font-semibold text-center py-4 bg-gray-700">
-                        Processed Image Analysis
-                    </h2>
-                    <div class="p-4">
-                        <img src="{{ processed_analysis_url }}" alt="Processed image analysis (histogram)"
-                             class="w-full h-auto object-contain rounded-md border-2 border-indigo-500"
-                             style="min-height: 200px;">
-                    </div>
-                    <div class="p-4 bg-gray-800">
-                        <a href="{{ processed_analysis_url }}" target="_blank"
-                           class="block w-full text-center py-2 px-4 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-medium transition-colors">
-                            View Full Size Analysis
-                        </a>
-                    </div>
-                </div>
-            </div>
-            <!-- ===== END: ANALYSIS RESULTS ===== -->
-
-
-            <!-- Back Button -->
-            <div class="text-center mt-12">
-                <a href="{{ url_for('index') }}"
-                   class="inline-block py-3 px-8 rounded-lg text-lg font-semibold text-white
-                          bg-gray-700 hover:bg-gray-600
-                          transition-all duration-150">
-                    &larr; Process Another Image
-                </a>
-            </div>
-        </div>
-
-        {% else %}
-
-        <!-- ===== UPLOAD FORM ===== -->
-        <div id="upload-form-container" class="flex items-center justify-center">
-            <div class="w-full max-w-lg p-8 bg-gray-800 rounded-lg shadow-2xl">
-                <h1 class="text-3xl font-bold text-center text-indigo-400 mb-2">
-                    Image Lab
-                </h1>
-                <p class="text-center text-gray-400 mb-6">
-                    Upload an image to process via AWS Lambda
-                </p>
-
-                <form id="upload-form" method="POST" enctype="multipart/form-data">
-                    <div class="space-y-6">
-                        <!-- File Input -->
-                        <div>
-                            <label for="file" class="block text-sm font-medium text-gray-300 mb-2">1. Choose Image File</label>
-                            <input type="file" name="file" id="file" required
-                                   class="block w-full text-sm text-gray-400
-                                          file:mr-4 file:py-2 file:px-4
-                                          file:rounded-lg file:border-0
-                                          file:text-sm file:font-semibold
-                                          file:bg-indigo-600 file:text-indigo-50
-                                          hover:file:bg-indigo-700
-                                          file:transition-colors file:duration-150 file:cursor-pointer
-                                          focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-gray-800 rounded-lg"
-                                   accept="image/png, image/jpeg, image/gif">
+                    <div class="flex items-center gap-4">
+                        <div class="status-badge success">
+                            <span class="status-dot"></span>
+                            SUCCESS
                         </div>
+                        <a href="{{ url_for('index') }}" class="px-4 py-2 bg-black border border-gray-800 rounded-sm text-xs uppercase tracking-wider hover:border-gray-600 transition-colors">
+                            ← NEW
+                        </a>
+                    </div>
+                </div>
 
-                        <!-- Operation Select -->
-                        <div>
-                            <label for="operation" class="block text-sm font-medium text-gray-300 mb-2">2. Select Operations (Applied in order)</label>
-                            <!-- --- NEW: Replaced select with checkboxes --- -->
-                            <div class="space-y-3 bg-gray-700 p-4 rounded-lg border border-gray-600">
-                                {% for value, name in operations.items() %}
-                                <label class="flex items-center text-gray-100 cursor-pointer">
-                                    <input type="checkbox" name="operations" value="{{ value }}"
-                                           class="h-4 w-4 rounded border-gray-500 bg-gray-600 text-indigo-600
-                                                  focus:ring-indigo-500 focus:ring-offset-gray-800
-                                                  transition duration-150">
-                                    <span class="ml-3">{{ name }}</span>
-                                </label>
-                                {% endfor %}
+                <!-- 2x2 Grid: Images & Analysis -->
+                <div class="grid grid-cols-2 gap-4 flex-1 overflow-hidden">
+                    
+                    <!-- Original Image -->
+                    <div class="result-card rounded-sm overflow-hidden flex flex-col">
+                        <div class="border-b border-gray-800 px-4 py-3 flex items-center justify-between">
+                            <span class="text-xs text-gray-400 uppercase tracking-wider">INPUT</span>
+                            <a href="{{ original_url }}" target="_blank" class="text-xs text-gray-500 hover:text-green-500 transition-colors">FULLSCREEN →</a>
+                        </div>
+                        <div class="p-4 bg-black flex-1 flex items-center justify-center">
+                            <img src="{{ original_url }}" alt="Original" class="max-w-full max-h-full object-contain rounded-sm border border-gray-800">
+                        </div>
+                    </div>
+
+                    <!-- Processed Image -->
+                    <div class="result-card rounded-sm overflow-hidden flex flex-col">
+                        <div class="border-b border-gray-800 px-4 py-3 flex items-center justify-between">
+                            <span class="text-xs text-gray-400 uppercase tracking-wider">OUTPUT</span>
+                            <a href="{{ processed_url }}" target="_blank" class="text-xs text-gray-500 hover:text-green-500 transition-colors">FULLSCREEN →</a>
+                        </div>
+                        <div class="p-4 bg-black flex-1 flex items-center justify-center">
+                            <img src="{{ processed_url }}" alt="Processed" class="max-w-full max-h-full object-contain rounded-sm border border-green-700">
+                        </div>
+                    </div>
+
+                    <!-- Original Analysis -->
+                    <div class="result-card rounded-sm overflow-hidden flex flex-col">
+                        <div class="border-b border-gray-800 px-4 py-3 flex items-center justify-between">
+                            <span class="text-xs text-gray-400 uppercase tracking-wider">INPUT ANALYSIS</span>
+                            <a href="{{ original_analysis_url }}" target="_blank" class="text-xs text-gray-500 hover:text-green-500 transition-colors">FULLSCREEN →</a>
+                        </div>
+                        <div class="p-4 bg-black flex-1 flex items-center justify-center">
+                            <img src="{{ original_analysis_url }}" alt="Original Analysis" class="max-w-full max-h-full object-contain rounded-sm border border-gray-800">
+                        </div>
+                    </div>
+
+                    <!-- Processed Analysis -->
+                    <div class="result-card rounded-sm overflow-hidden flex flex-col">
+                        <div class="border-b border-gray-800 px-4 py-3 flex items-center justify-between">
+                            <span class="text-xs text-gray-400 uppercase tracking-wider">OUTPUT ANALYSIS</span>
+                            <a href="{{ processed_analysis_url }}" target="_blank" class="text-xs text-gray-500 hover:text-green-500 transition-colors">FULLSCREEN →</a>
+                        </div>
+                        <div class="p-4 bg-black flex-1 flex items-center justify-center">
+                            <img src="{{ processed_analysis_url }}" alt="Processed Analysis" class="max-w-full max-h-full object-contain rounded-sm border border-green-700">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {% else %}
+
+            <!-- ===== UPLOAD FORM ===== -->
+            <div class="flex-1 flex flex-col">
+                
+                <!-- Header -->
+                <div class="mb-6">
+                    <h1 class="text-3xl font-medium mb-2">
+                        SERVERLESS IMAGE PROCESSING
+                    </h1>
+                    <p class="text-sm text-gray-400">
+                        AWS LAMBDA • STEP FUNCTIONS • EVENTBRIDGE • S3
+                    </p>
+                </div>
+
+                <!-- Upload Form - Horizontal Layout -->
+                <form id="upload-form" method="POST" enctype="multipart/form-data" class="flex-1 flex flex-col">
+                    
+                    <!-- Top Section: File Upload + Pipeline (side by side) -->
+                    <div class="grid grid-cols-2 gap-6 mb-6" style="height: 40vh;">
+                        
+                        <!-- Left: File Upload -->
+                        <div class="flex flex-col">
+                            <label class="block text-xs text-gray-400 uppercase tracking-wider mb-3">
+                                01. IMAGE SOURCE
+                            </label>
+                            <div class="upload-area rounded-sm cursor-pointer flex-1 flex flex-col items-center justify-center" id="upload-area">
+                                <input type="file" name="file" id="file" required accept="image/png, image/jpeg, image/gif" class="hidden">
+                                <div id="upload-prompt" class="text-center">
+                                    <svg class="w-16 h-16 mx-auto mb-3 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                                    </svg>
+                                    <p class="text-sm text-gray-300 mb-1">CLICK TO SELECT OR DRAG AND DROP</p>
+                                    <p class="text-xs text-gray-500">PNG • JPG • GIF</p>
+                                </div>
+                                <div id="file-info" class="hidden">
+                                    <div class="inline-flex items-center gap-3 bg-green-900/20 border border-green-700 rounded-sm px-4 py-3">
+                                        <svg class="w-6 h-6 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                        </svg>
+                                        <span class="text-sm text-green-400" id="file-name"></span>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
-                        <!-- Submit Button -->
-                        <div>
-                            <button id="submit-button" type="submit"
-                                    class="w-full flex items-center justify-center py-3 px-4 border border-transparent
-                                           rounded-lg shadow-lg text-base font-semibold text-white
-                                           bg-indigo-600 hover:bg-indigo-700
-                                           focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-gray-800
-                                           transition-all duration-150">
-                                <span class="button-text">Process Image</span>
-                                <div class="spinner hidden ml-2"></div>
-                            </button>
+                        <!-- Right: Processing Pipeline -->
+                        <div class="flex flex-col">
+                            <label class="block text-xs text-gray-400 uppercase tracking-wider mb-3">
+                                02. PROCESSING PIPELINE
+                            </label>
+                            <div class="bg-black border border-gray-800 rounded-sm p-2 flex-1 overflow-y-auto">
+                                <div class="space-y-1">
+                                    {% for value, name in operations.items() %}
+                                    <label class="flex items-center justify-between cursor-pointer group operation-item p-2 rounded-sm transition-colors">
+                                        <input type="checkbox" name="operations" value="{{ value }}" class="hidden peer">
+                                        <div class="flex items-center gap-4">
+                                            <span class="text-xs text-gray-500 w-6 operation-index transition-colors">0{{ loop.index }}</span>
+                                            <span class="text-sm text-gray-300 group-hover:text-white operation-text transition-colors">{{ name }}</span>
+                                        </div>
+                                        
+                                        <!-- Toggle switch is also a sibling -->
+                                        <div class="toggle-switch"></div>
+                                    </label>
+                                    {% endfor %}
+                                </div>
+                            </div>
                         </div>
+                    </div>
+
+                    <!-- Bottom Section: Instructions + Submit -->
+                    <div class="mt-auto">
+                        <div class="bg-black border border-gray-800 rounded-sm p-4 mb-4 text-xs text-gray-500">
+                            <span class="text-gray-400">NOTICE:</span> Operations applied sequentially • Parallel Lambda execution • Real-time S3 event processing
+                        </div>
+
+                        <!-- Submit -->
+                        <button type="submit" id="submit-button" 
+                                class="w-full py-3 bg-green-700 hover:bg-green-800 text-green-100 rounded-sm text-sm uppercase tracking-wider font-medium transition-colors flex items-center justify-center gap-3">
+                            <span id="button-text">EXECUTE PIPELINE</span>
+                            <div class="spinner hidden"></div>
+                        </button>
                     </div>
                 </form>
             </div>
+
+            {% endif %}
         </div>
-        {% endif %}
+
+        <!-- Vertical Flow Sidebar -->
+        <div class="flow-sidebar">
+            <p class="text-xs text-gray-500 uppercase tracking-wider mb-6 text-center">INFRASTRUCTURE PIPELINE</p>
+            
+        <div class="space-y-0">
+                <div class="flow-node-vertical" id="node-s3">
+                    <img src="{{ url_for('static', filename='s3.png') }}" alt="S3 Icon" class="node-icon">
+                    S3 UPLOAD
+                </div>
+                <div class="flow-arrow-vertical" id="arrow-1"></div>
+                
+                <div class="flow-node-vertical" id="node-eventbridge">
+                    <img src="{{ url_for('static', filename='eventbridge.png') }}" alt="EventBridge Icon" class="node-icon">
+                    EVENTBRIDGE
+                </div>
+                <div class="flow-arrow-vertical" id="arrow-2"></div>
+                
+                <div class="flow-node-vertical" id="node-stepfn">
+                    <img src="{{ url_for('static', filename='stepfunctions.png') }}" alt="Step Functions Icon" class="node-icon">
+                    STEP FUNCTIONS
+                </div>
+                <div class="flow-arrow-vertical" id="arrow-3"></div>
+                
+                <div class="flow-node-vertical" id="node-lambda1">
+                    <img src="{{ url_for('static', filename='lambda.png') }}" alt="Lambda Icon" class="node-icon">
+                    PROCESS
+                </div>
+                <div class="flow-arrow-vertical" id="arrow-4"></div>
+                
+                <div class="flow-node-vertical" id="node-lambda2">
+                    <img src="{{ url_for('static', filename='lambda.png') }}" alt="Lambda Icon" class="node-icon">
+                    ANALYZE
+                </div>
+                <div class="flow-arrow-vertical" id="arrow-5"></div>
+                
+                <div class="flow-node-vertical" id="node-output">
+                    <img src="{{ url_for('static', filename='s3.png') }}" alt="S3 Icon" class="node-icon">
+                    S3 OUTPUT
+                </div>
+            </div>
+
+            <div class="mt-6 pt-6 border-t border-gray-800 text-center space-y-2">
+                <div class="text-xs text-gray-500">PARALLEL</div>
+                <div class="text-xs text-gray-500">REAL-TIME</div>
+            </div>
+        </div>
     </div>
 
     <script>
-        // Simple loading state for the button
+        // File upload handling
+        const uploadArea = document.getElementById('upload-area');
+        const fileInput = document.getElementById('file');
+        const uploadPrompt = document.getElementById('upload-prompt');
+        const fileInfo = document.getElementById('file-info');
+        const fileName = document.getElementById('file-name');
+
+        if (uploadArea && fileInput) {
+            uploadArea.addEventListener('click', () => fileInput.click());
+            
+            uploadArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                uploadArea.classList.add('drag-over');
+            });
+            
+            uploadArea.addEventListener('dragleave', () => {
+                uploadArea.classList.remove('drag-over');
+            });
+            
+            uploadArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                uploadArea.classList.remove('drag-over');
+                if (e.dataTransfer.files.length) {
+                    fileInput.files = e.dataTransfer.files;
+                    updateFileDisplay();
+                }
+            });
+            
+            fileInput.addEventListener('change', updateFileDisplay);
+            
+            function updateFileDisplay() {
+                if (fileInput.files.length) {
+                    fileName.textContent = fileInput.files[0].name;
+                    uploadPrompt.classList.add('hidden');
+                    fileInfo.classList.remove('hidden');
+                }
+            }
+        }
+
+        // Form submission with animation
         const form = document.getElementById('upload-form');
         if (form) {
             form.addEventListener('submit', function() {
                 const button = document.getElementById('submit-button');
+                const buttonText = document.getElementById('button-text');
+                const spinner = button.querySelector('.spinner');
+                
                 button.disabled = true;
-                button.querySelector('.button-text').textContent = 'Processing...';
-                button.querySelector('.spinner').classList.remove('hidden');
+                button.classList.remove('hover:bg-green-600');
+                button.classList.add('bg-gray-700', 'text-white');
+                buttonText.textContent = 'PROCESSING';
+                spinner.classList.remove('hidden');
+                spinner.classList.add('spinner-loading');
+                
+                // Animate flow diagram
+                animateFlow();
             });
         }
+
+        // Flow diagram animation
+        function animateFlow() {
+            const nodes = ['node-s3', 'node-eventbridge', 'node-stepfn', 'node-lambda1', 'node-lambda2', 'node-output'];
+            const arrows = ['arrow-1', 'arrow-2', 'arrow-3', 'arrow-4', 'arrow-5'];
+            
+            nodes.forEach((id, index) => {
+                setTimeout(() => {
+                    document.getElementById(id)?.classList.add('active');
+                    if (arrows[index]) {
+                        document.getElementById(arrows[index])?.classList.add('active');
+                    }
+                }, index * 400);
+            });
+        }
+
+        // Check if results page and animate flow
+        {% if original_url and processed_url and original_analysis_url and processed_analysis_url %}
+        window.addEventListener('load', function() {
+            animateFlow();
+        });
+        {% endif %}
+
+        // Idle animation on upload page
+        {% if not (original_url and processed_url and original_analysis_url and processed_analysis_url) %}
+        setInterval(() => {
+            const firstNode = document.getElementById('node-s3');
+            if (firstNode && !firstNode.classList.contains('active')) {
+                firstNode.style.opacity = '0.5';
+                setTimeout(() => firstNode.style.opacity = '1', 500);
+            }
+        }, 3000);
+        {% endif %}
     </script>
 
 </body>
