@@ -33,3 +33,8 @@ resource "aws_s3_bucket_ownership_controls" "output_ownership" {
     object_ownership = "BucketOwnerEnforced"
   }
 }
+
+resource "aws_s3_bucket_notification" "input_eventbridge_notification" {
+  bucket      = aws_s3_bucket.input_bucket.id
+  eventbridge = true
+}
