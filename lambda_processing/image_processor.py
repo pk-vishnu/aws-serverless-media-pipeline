@@ -2,53 +2,96 @@ import io
 import os
 
 import boto3
-from PIL import Image, ImageFilter
+from PIL import Image, ImageEnhance, ImageFilter
 
 s3 = boto3.client("s3")
 
 
+# -----------------------------------------------------
+#  APPLY OPERATION
+# -----------------------------------------------------
 def apply_operation(image: Image.Image, operation: str, current_format: str):
-    """
-    Applies a single operation to a PIL Image object.
-    Returns the modified image and its new format.
-    """
     output_format = current_format
 
+    # --- grayscale ---
     if operation == "grayscale":
         image = image.convert("L")
         output_format = "JPEG"
 
+    # --- thumbnail ---
     elif operation == "thumbnail":
         image.thumbnail((200, 200))
 
+    # --- blur ---
     elif operation == "blur":
-        image = image.filter(ImageFilter.GaussianBlur(radius=5))
+        image = image.filter(ImageFilter.GaussianBlur(5))
 
+    # --- edges ---
     elif operation == "edges":
-        # Edge detection requires grayscale
         if image.mode != "L":
             image = image.convert("L")
         image = image.filter(ImageFilter.FIND_EDGES)
         output_format = "JPEG"
 
+    # --- enhance contrast ---
+    elif operation == "enhance":
+        enhancer = ImageEnhance.Contrast(image)
+        image = enhancer.enhance(1.5)
+
+    # --- sepia ---
+    elif operation == "sepia":
+        image = image.convert("RGB")
+
+        # Fast sepia using matrix transform
+        sepia_matrix = (
+            0.393,
+            0.769,
+            0.189,
+            0,
+            0.349,
+            0.686,
+            0.168,
+            0,
+            0.272,
+            0.534,
+            0.131,
+            0,
+        )
+
+        image = image.convert("RGB", sepia_matrix)
+        output_format = "JPEG"
+
+    # --- crop/pad to 9:16 ---
+    elif operation == "crop_pad":
+        width, height = image.size
+        target_ratio = 9 / 16
+        current_ratio = width / height
+
+        if current_ratio > target_ratio:
+            new_width = int(height * target_ratio)
+            left = (width - new_width) // 2
+            image = image.crop((left, 0, left + new_width, height))
+        else:
+            new_height = int(width / target_ratio)
+            top = (height - new_height) // 2
+            image = image.crop((0, top, width, top + new_height))
+
     else:
-        print(f"Warning: Unknown operation '{operation}'. Skipping.")
-        # Return None to indicate a skipped/unknown operation
+        print(f"Warning: Unknown operation '{operation}', skipping.")
         return None, output_format
 
     return image, output_format
 
 
+# -----------------------------------------------------
+#  UPLOAD HELPERS
+# -----------------------------------------------------
 def save_and_upload(image: Image.Image, bucket: str, key: str, format: str):
-    """
-    Saves a PIL Image to an in-memory buffer and uploads it to S3.
-    """
     try:
         output_stream = io.BytesIO()
         image.save(output_stream, format=format)
         output_stream.seek(0)
 
-        # Get content type for browser viewing
         content_type = Image.MIME.get(format, "image/jpeg")
 
         s3.upload_fileobj(
@@ -57,77 +100,76 @@ def save_and_upload(image: Image.Image, bucket: str, key: str, format: str):
             key,
             ExtraArgs={"ContentType": content_type},
         )
-        print(f"Successfully uploaded: {key}")
+        print(f"Uploaded: {key}")
     except Exception as e:
-        print(f"Error uploading {key}: {e}")
+        print(f"Upload error for {key}: {e}")
 
 
+# -----------------------------------------------------
+#  LAMBDA HANDLER
+# -----------------------------------------------------
 def lambda_handler(event, context):
     try:
-        # 1. Get Event Details
+        # Event details
         record = event["Records"][0]
         src_bucket = record["s3"]["bucket"]["name"]
         src_key = record["s3"]["object"]["key"]
-
         dst_bucket = os.environ["OUTPUT_BUCKET"]
 
         base_name, extension = os.path.splitext(src_key)
-
-        # Sequentially processed (combined fx) file
         sequential_dst_key = f"processed/{base_name}_combined{extension}"
 
-        # 2. Get Operation from Metadata
-        metadata = {}
+        # Metadata → operations list
         try:
-            head_response = s3.head_object(Bucket=src_bucket, Key=src_key)
-            metadata = head_response.get("Metadata", {})
-            print(f"Successfully fetched metadata: {metadata}")
+            head = s3.head_object(Bucket=src_bucket, Key=src_key)
+            metadata = head.get("Metadata", {})
+            print(f"Metadata: {metadata}")
         except Exception as e:
-            print(f"Error fetching head_object, using default. Error: {e}")
+            print(f"Metadata fetch failed: {e}")
+            metadata = {}
 
-        operations_string = metadata.get("operations", "grayscale")
-        operations_list = [
-            op.strip() for op in operations_string.split(",") if op.strip()
-        ]
+        operations_str = metadata.get("operations", "grayscale")
+        operations = [op.strip() for op in operations_str.split(",") if op.strip()]
 
-        # 3. Download Image
+        # Download original image
         file_stream = io.BytesIO()
         s3.download_fileobj(src_bucket, src_key, file_stream)
         file_stream.seek(0)
 
-        original_image = Image.open(file_stream)
-        original_format = original_image.format or "JPEG"
+        original = Image.open(file_stream)
+        original_format = original.format or "JPEG"
 
-        # --- 4a. Sequential Processing  ---
-        print(f"Applying sequential operations: {operations_list}")
-        sequential_image = original_image.copy()
-        seq_format = original_format
+        # -------------------------------
+        # SEQUENTIAL (combined effects)
+        # -------------------------------
+        print(f"Sequential ops: {operations}")
 
-        for op in operations_list:
-            img, fmt = apply_operation(sequential_image, op, seq_format)
+        seq_img = original.copy()
+        seq_fmt = original_format
+
+        for op in operations:
+            img, fmt = apply_operation(seq_img, op, seq_fmt)
             if img:
-                sequential_image = img
-                seq_format = fmt
+                seq_img, seq_fmt = img, fmt
 
-        save_and_upload(sequential_image, dst_bucket, sequential_dst_key, seq_format)
+        save_and_upload(seq_img, dst_bucket, sequential_dst_key, seq_fmt)
 
-        # --- 4b. Independent Processing  ---
-        print(f"Applying independent operations...")
-        for op in operations_list:
-            ind_image = original_image.copy()
-            ind_format = original_format
+        # -------------------------------
+        # INDEPENDENT (per-effect)
+        # -------------------------------
+        print("Independent ops:")
 
-            print(f"Applying independent op: {op}")
-            img, fmt = apply_operation(ind_image, op, ind_format)
+        for op in operations:
+            ind_img = original.copy()
+            ind_fmt = original_format
 
+            img, fmt = apply_operation(ind_img, op, ind_fmt)
             if img:
                 ind_key = f"processed/{base_name}_{op}{extension}"
                 save_and_upload(img, dst_bucket, ind_key, fmt)
 
-        # only returning combined fx image for analyser
-        print(f"Processing complete. Main output: {sequential_dst_key}")
         return {"status": "OK", "output": sequential_dst_key}
 
     except Exception as e:
-        print(f"Error processing image: {e}")
+        print(f"Fatal error: {e}")
         raise e

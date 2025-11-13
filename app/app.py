@@ -18,6 +18,9 @@ SUPPORTED_OPERATIONS = {
     "thumbnail": "Thumbnail (200px)",
     "blur": "Apply Blur",
     "edges": "Find Edges",
+    "enhance": "Enhance Contrast (+1.5)",
+    "sepia": "Sepia Tone",
+    "crop_pad": "Crop to 9:16",
 }
 
 
