@@ -2,7 +2,7 @@ import io
 import os
 
 import boto3
-from PIL import Image, ImageEnhance, ImageFilter
+from PIL import Image, ImageEnhance, ImageFilter, ImageOps
 
 s3 = boto3.client("s3")
 
@@ -137,6 +137,11 @@ def lambda_handler(event, context):
         file_stream.seek(0)
 
         original = Image.open(file_stream)
+        try:
+            original = ImageOps.exif_transpose(original)
+        except Exception as e:
+            print(f"EXIF transpose failed (continuing without correction): {e}")
+
         original_format = original.format or "JPEG"
 
         # -------------------------------
