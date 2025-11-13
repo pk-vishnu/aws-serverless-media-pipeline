@@ -7,174 +7,164 @@ from PIL import Image, ImageEnhance, ImageFilter, ImageOps
 s3 = boto3.client("s3")
 
 
-# -----------------------------------------------------
-#  APPLY OPERATION
-# -----------------------------------------------------
-def apply_operation(image: Image.Image, operation: str, current_format: str):
-    output_format = current_format
+# -----------------------------------------
+# Helpers
+# -----------------------------------------
+def safe_open_image(stream, max_resolution=4096):
+    """
+    Open an image with memory-optimized decoding.
+    draft() reduces decoded resolution before load().
+    """
+    img = Image.open(stream)
+
+    try:
+        img.draft("RGB", (max_resolution, max_resolution))
+    except Exception:
+        pass
+
+    # Ensure EXIF rotation is applied with minimal copy
+    try:
+        img = ImageOps.exif_transpose(img)
+    except Exception:
+        pass
+
+    return img
+
+
+def apply_operation(image, operation: str, fmt: str):
+    """
+    Optimized version:
+    - No multiple copies
+    - Convert in-place when possible
+    """
 
     # --- grayscale ---
     if operation == "grayscale":
-        image = image.convert("L")
-        output_format = "JPEG"
+        return image.convert("L"), "JPEG"
 
     # --- thumbnail ---
     elif operation == "thumbnail":
         image.thumbnail((200, 200))
+        return image, fmt
 
     # --- blur ---
     elif operation == "blur":
-        image = image.filter(ImageFilter.GaussianBlur(5))
+        return image.filter(ImageFilter.GaussianBlur(5)), fmt
 
     # --- edges ---
     elif operation == "edges":
-        if image.mode != "L":
-            image = image.convert("L")
-        image = image.filter(ImageFilter.FIND_EDGES)
-        output_format = "JPEG"
+        img = image.convert("L") if image.mode != "L" else image
+        return img.filter(ImageFilter.FIND_EDGES), "JPEG"
 
     # --- enhance contrast ---
     elif operation == "enhance":
         enhancer = ImageEnhance.Contrast(image)
-        image = enhancer.enhance(1.5)
+        return enhancer.enhance(1.5), fmt
 
     # --- sepia ---
     elif operation == "sepia":
-        image = image.convert("RGB")
-
-        # Fast sepia using matrix transform
-        sepia_matrix = (
-            0.393,
-            0.769,
-            0.189,
-            0,
-            0.349,
-            0.686,
-            0.168,
-            0,
-            0.272,
-            0.534,
-            0.131,
-            0,
-        )
-
-        image = image.convert("RGB", sepia_matrix)
-        output_format = "JPEG"
+        sepia = (0.393, 0.769, 0.189, 0, 0.349, 0.686, 0.168, 0, 0.272, 0.534, 0.131, 0)
+        img = image.convert("RGB", sepia)
+        return img, "JPEG"
 
     # --- crop/pad to 9:16 ---
     elif operation == "crop_pad":
-        width, height = image.size
+        w, h = image.size
         target_ratio = 9 / 16
-        current_ratio = width / height
+        current_ratio = w / h
 
         if current_ratio > target_ratio:
-            new_width = int(height * target_ratio)
-            left = (width - new_width) // 2
-            image = image.crop((left, 0, left + new_width, height))
+            new_w = int(h * target_ratio)
+            left = (w - new_w) // 2
+            img = image.crop((left, 0, left + new_w, h))
         else:
-            new_height = int(width / target_ratio)
-            top = (height - new_height) // 2
-            image = image.crop((0, top, width, top + new_height))
+            new_h = int(w / target_ratio)
+            top = (h - new_h) // 2
+            img = image.crop((0, top, w, top + new_h))
+
+        return img, fmt
 
     else:
-        print(f"Warning: Unknown operation '{operation}', skipping.")
-        return None, output_format
-
-    return image, output_format
+        print(f"Unknown op {operation}, skipping.")
+        return image, fmt
 
 
-# -----------------------------------------------------
-#  UPLOAD HELPERS
-# -----------------------------------------------------
-def save_and_upload(image: Image.Image, bucket: str, key: str, format: str):
-    try:
-        output_stream = io.BytesIO()
-        image.save(output_stream, format=format)
-        output_stream.seek(0)
+def save_and_upload(image, bucket, key, fmt):
+    out = io.BytesIO()
+    image.save(out, format=fmt)
+    out.seek(0)
 
-        content_type = Image.MIME.get(format, "image/jpeg")
-
-        s3.upload_fileobj(
-            output_stream,
-            bucket,
-            key,
-            ExtraArgs={"ContentType": content_type},
-        )
-        print(f"Uploaded: {key}")
-    except Exception as e:
-        print(f"Upload error for {key}: {e}")
+    s3.upload_fileobj(
+        out,
+        bucket,
+        key,
+        ExtraArgs={"ContentType": Image.MIME.get(fmt, "image/jpeg")},
+    )
 
 
-# -----------------------------------------------------
-#  LAMBDA HANDLER
-# -----------------------------------------------------
+# -----------------------------------------
+# Lambda Handler
+# -----------------------------------------
 def lambda_handler(event, context):
     try:
-        # Event details
         record = event["Records"][0]
         src_bucket = record["s3"]["bucket"]["name"]
         src_key = record["s3"]["object"]["key"]
         dst_bucket = os.environ["OUTPUT_BUCKET"]
 
-        base_name, extension = os.path.splitext(src_key)
-        sequential_dst_key = f"processed/{base_name}_combined{extension}"
+        base_name, ext = os.path.splitext(src_key)
+        sequential_key = f"processed/{base_name}_combined{ext}"
 
-        # Metadata → operations list
+        # --- Get metadata ---
         try:
-            head = s3.head_object(Bucket=src_bucket, Key=src_key)
-            metadata = head.get("Metadata", {})
-            print(f"Metadata: {metadata}")
-        except Exception as e:
-            print(f"Metadata fetch failed: {e}")
+            metadata = s3.head_object(Bucket=src_bucket, Key=src_key).get(
+                "Metadata", {}
+            )
+        except:
             metadata = {}
 
-        operations_str = metadata.get("operations", "grayscale")
-        operations = [op.strip() for op in operations_str.split(",") if op.strip()]
+        operations = [
+            o.strip()
+            for o in metadata.get("operations", "grayscale").split(",")
+            if o.strip()
+        ]
 
-        # Download original image
-        file_stream = io.BytesIO()
-        s3.download_fileobj(src_bucket, src_key, file_stream)
-        file_stream.seek(0)
+        # --- Load image in memory-efficient way ---
+        stream = io.BytesIO()
+        s3.download_fileobj(src_bucket, src_key, stream)
+        stream.seek(0)
 
-        original = Image.open(file_stream)
-        try:
-            original = ImageOps.exif_transpose(original)
-        except Exception as e:
-            print(f"EXIF transpose failed (continuing without correction): {e}")
+        original = safe_open_image(stream)
+        original_format = (original.format or "JPEG").upper()
 
-        original_format = original.format or "JPEG"
-
-        # -------------------------------
-        # SEQUENTIAL (combined effects)
-        # -------------------------------
-        print(f"Sequential ops: {operations}")
-
-        seq_img = original.copy()
-        seq_fmt = original_format
+        # ----------------------------------
+        # SEQUENTIAL PROCESSING
+        # ----------------------------------
+        img_seq = original.copy()
+        fmt_seq = original_format
 
         for op in operations:
-            img, fmt = apply_operation(seq_img, op, seq_fmt)
-            if img:
-                seq_img, seq_fmt = img, fmt
+            img_seq, fmt_seq = apply_operation(img_seq, op, fmt_seq)
 
-        save_and_upload(seq_img, dst_bucket, sequential_dst_key, seq_fmt)
+        save_and_upload(img_seq, dst_bucket, sequential_key, fmt_seq)
+        img_seq.close()
 
-        # -------------------------------
-        # INDEPENDENT (per-effect)
-        # -------------------------------
-        print("Independent ops:")
-
+        # ----------------------------------
+        # INDEPENDENT PROCESSING
+        # ----------------------------------
         for op in operations:
-            ind_img = original.copy()
-            ind_fmt = original_format
+            img_ind = original.copy()
+            fmt_ind = original_format
 
-            img, fmt = apply_operation(ind_img, op, ind_fmt)
-            if img:
-                ind_key = f"processed/{base_name}_{op}{extension}"
-                save_and_upload(img, dst_bucket, ind_key, fmt)
+            img_ind, fmt_ind = apply_operation(img_ind, op, fmt_ind)
+            ind_key = f"processed/{base_name}_{op}{ext}"
 
-        return {"status": "OK", "output": sequential_dst_key}
+            save_and_upload(img_ind, dst_bucket, ind_key, fmt_ind)
+            img_ind.close()
+
+        original.close()
+        return {"status": "OK", "output": sequential_key}
 
     except Exception as e:
-        print(f"Fatal error: {e}")
+        print(f"Fatal: {e}")
         raise e

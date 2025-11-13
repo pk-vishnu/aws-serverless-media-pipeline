@@ -20,7 +20,7 @@ mkdir -p ${ANALYZER_TMP_DIR}
 
 echo "Building ${PROCESSOR_ZIP_NAME}..."
 echo "  Installing dependencies from ${PROCESSOR_SRC_DIR}/requirements.txt"
-pip install -r "${PROCESSOR_SRC_DIR}/requirements.txt" -t ${PROCESSOR_TMP_DIR}
+# pip install -r "${PROCESSOR_SRC_DIR}/requirements.txt" -t ${PROCESSOR_TMP_DIR}
 
 echo "  Copying source: ${PROCESSOR_SRC_DIR}/image_processor.py"
 cp "${PROCESSOR_SRC_DIR}/image_processor.py" ${PROCESSOR_TMP_DIR}/
@@ -30,7 +30,7 @@ echo "  Zipping package..."
 
 echo "Building ${ANALYZER_ZIP_NAME}..."
 echo "  Installing dependencies from ${ANALYZER_SRC_DIR}/requirements.txt"
-pip install -r "${ANALYZER_SRC_DIR}/requirements.txt" -t ${ANALYZER_TMP_DIR}
+# pip install -r "${ANALYZER_SRC_DIR}/requirements.txt" -t ${ANALYZER_TMP_DIR}
 
 echo "  Copying source: ${ANALYZER_SRC_DIR}/image_analyser.py"
 cp "${ANALYZER_SRC_DIR}/image_analyser.py" "${ANALYZER_TMP_DIR}/image_analyser.py"

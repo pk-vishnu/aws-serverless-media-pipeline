@@ -8,153 +8,94 @@ s3 = boto3.client("s3")
 OUTPUT_BUCKET = os.environ["OUTPUT_BUCKET"]
 
 
+def safe_open_image(stream, max_res=2048):
+    img = Image.open(stream)
+    try:
+        img.draft("RGB", (max_res, max_res))
+    except:
+        pass
+    img.thumbnail((max_res, max_res))
+    return img.convert("RGB")
+
+
 def create_histogram(image, title):
-    """
-    Create a simple, Lambda-safe RGB histogram with X/Y axes.
-    Uses only the default bitmap font to avoid memory issues.
-    """
-
-    # Create a small copy for histogram calculation to save memory
-    img_thumb = image.copy()
-    img_thumb.thumbnail((1024, 1024))
-    img_rgb = img_thumb.convert("RGB")
-
-    # --- Define Layout & Margins ---
-    canvas_width = 572
-    canvas_height = 300
-
+    # Canvas
+    W, H = 572, 300
     margin = {"top": 40, "bottom": 40, "left": 50, "right": 10}
 
-    # Calculate the graph area dimensions
-    graph_width = canvas_width - margin["left"] - margin["right"]  # 512px
-    graph_height = canvas_height - margin["top"] - margin["bottom"]  # 220px
+    graph_w = W - margin["left"] - margin["right"]
+    graph_h = H - margin["top"] - margin["bottom"]
 
-    # Define the "floor" and "wall" of the graph
-    graph_floor_y = margin["top"] + graph_height
-    graph_wall_x = margin["left"]
+    floor_y = margin["top"] + graph_h
+    wall_x = margin["left"]
 
-    # Create output canvas
-    canvas = Image.new(
-        "RGB", (canvas_width, canvas_height), (31, 41, 55)
-    )  # bg-gray-800
+    canvas = Image.new("RGB", (W, H), (31, 41, 55))
     draw = ImageDraw.Draw(canvas)
 
-    # --- Compute Histograms ---
-    red_hist = img_rgb.histogram()[0:256]
-    green_hist = img_rgb.histogram()[256:512]
-    blue_hist = img_rgb.histogram()[512:768]
+    # Histogram (fast)
+    hist = image.histogram()
+    r = hist[0:256]
+    g = hist[256:512]
+    b = hist[512:768]
 
-    # --- Normalize Values ---
-    max_val = max(max(red_hist), max(green_hist), max(blue_hist))
+    max_val = max(max(r), max(g), max(b)) or 1
+    scale = graph_h / max_val
 
-    # Add safety check for ZeroDivisionError (e.g., a pure black image)
-    if max_val == 0:
-        scale = 0
-    else:
-        scale = graph_height / max_val
-
-    # --- Draw Axis Lines ---
-    axis_color = (150, 150, 165)  # Light gray for axes
-    # Y-Axis Line
-    draw.line(
-        [(graph_wall_x, margin["top"]), (graph_wall_x, graph_floor_y)], fill=axis_color
-    )
-    # X-Axis Line
-    draw.line(
-        [(graph_wall_x, graph_floor_y), (graph_wall_x + graph_width, graph_floor_y)],
-        fill=axis_color,
-    )
-
-    # --- Draw R, G, B Line Histograms ---
-    # We now plot relative to the graph_wall_x and graph_floor_y
-    x_step = graph_width / 255.0  # Use float for precision
+    x_step = graph_w / 255
 
     for i in range(255):
-        # Calculate x coordinates
-        x1 = graph_wall_x + i * x_step
-        x2 = graph_wall_x + (i + 1) * x_step
+        x1 = wall_x + i * x_step
+        x2 = wall_x + (i + 1) * x_step
 
-        # Calculate y coordinates (inverted, 0 is at the top)
-        y1_r = graph_floor_y - red_hist[i] * scale
-        y2_r = graph_floor_y - red_hist[i + 1] * scale
+        draw.line(
+            [(x1, floor_y - r[i] * scale), (x2, floor_y - r[i + 1] * scale)],
+            fill=(255, 80, 80),
+        )
+        draw.line(
+            [(x1, floor_y - g[i] * scale), (x2, floor_y - g[i + 1] * scale)],
+            fill=(80, 255, 80),
+        )
+        draw.line(
+            [(x1, floor_y - b[i] * scale), (x2, floor_y - b[i + 1] * scale)],
+            fill=(80, 80, 255),
+        )
 
-        y1_g = graph_floor_y - green_hist[i] * scale
-        y2_g = graph_floor_y - green_hist[i + 1] * scale
+    draw.text((margin["left"], 10), title, fill=(200, 200, 200))
+    draw.text((wall_x, floor_y + 5), "0", fill=(200, 200, 200))
+    draw.text((wall_x + 128 * x_step - 10, floor_y + 5), "128", fill=(200, 200, 200))
+    draw.text((wall_x + 255 * x_step - 18, floor_y + 5), "255", fill=(200, 200, 200))
 
-        y1_b = graph_floor_y - blue_hist[i] * scale
-        y2_b = graph_floor_y - blue_hist[i + 1] * scale
-
-        # Draw lines
-        draw.line([(x1, y1_r), (x2, y2_r)], fill=(255, 80, 80))
-        draw.line([(x1, y1_g), (x2, y2_g)], fill=(80, 255, 80))
-        draw.line([(x1, y1_b), (x2, y2_b)], fill=(80, 80, 255))
-
-    # --- Add Title & Labels (Using default font) ---
-    label_color = (200, 200, 200)
-
-    # Title
-    draw.text((margin["left"], 10), title, fill=label_color)
-
-    # X-Axis Labels
-    draw.text((graph_wall_x, graph_floor_y + 5), "0", fill=label_color)
-    x_mid = graph_wall_x + (128 * x_step)
-    draw.text((x_mid - 10, graph_floor_y + 5), "128", fill=label_color)
-    x_end = graph_wall_x + (255 * x_step)
-    draw.text((x_end - 18, graph_floor_y + 5), "255", fill=label_color)
-
-    # Y-Axis Labels
-    draw.text(
-        (margin["left"] - 30, margin["top"] - 6), str(int(max_val)), fill=label_color
-    )
-    draw.text((margin["left"] - 30, graph_floor_y - 6), "0", fill=label_color)
-
-    # --- Save to Buffer ---
-    buf = io.BytesIO()
-    canvas.save(buf, format="PNG")
-    buf.seek(0)
-    return buf
+    out = io.BytesIO()
+    canvas.save(out, "PNG")
+    out.seek(0)
+    return out
 
 
 def lambda_handler(event, context):
-    """
-    Input event:
-    {
-        "source_bucket": "input-bucket",
-        "source_key": "image.jpg",
-        "analysis_key": "analysis/image_original_hist.png",
-        "title": "Original Image Histogram"
-    }
-    """
     try:
-        # 1. Get details from the event passed by the Step Function
-        source_bucket = event["source_bucket"]
-        source_key = event["source_key"]
-        analysis_key = event["analysis_key"]
-        title = event.get("title", "Color Histogram")
+        bucket = event["source_bucket"]
+        key = event["source_key"]
+        out_key = event["analysis_key"]
+        title = event.get("title", "Histogram")
 
-        print(f"Analyzing {source_key} from {source_bucket}")
+        stream = io.BytesIO()
+        s3.download_fileobj(bucket, key, stream)
+        stream.seek(0)
 
-        # 2. Download Image
-        file_stream = io.BytesIO()
-        s3.download_fileobj(source_bucket, source_key, file_stream)
-        file_stream.seek(0)
+        img = safe_open_image(stream)
 
-        image = Image.open(file_stream)
+        hist_buffer = create_histogram(img, title)
 
-        # 3. Generate Histogram
-        histogram_buffer = create_histogram(image, title)
-
-        # 4. Upload histogram to Output Bucket
         s3.upload_fileobj(
-            histogram_buffer,
+            hist_buffer,
             OUTPUT_BUCKET,
-            analysis_key,
+            out_key,
             ExtraArgs={"ContentType": "image/png"},
         )
 
-        print(f"Successfully generated histogram: {analysis_key}")
-        return {"status": "OK", "bucket": OUTPUT_BUCKET, "key": analysis_key}
+        img.close()
+        return {"status": "OK", "key": out_key}
 
     except Exception as e:
-        print(f"Error analyzing image: {e}")
+        print(f"Error: {e}")
         raise e
