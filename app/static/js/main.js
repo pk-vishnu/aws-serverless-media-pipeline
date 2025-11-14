@@ -69,3 +69,39 @@ function animateFlow() {
     }, index * 400);
   });
 }
+
+// SORTABLE OPERATION PIPELINE
+const operationsList = document.getElementById("operations-list");
+const orderInput = document.getElementById("operations_order");
+
+function updateOperationsOrder() {
+  const items = [...operationsList.querySelectorAll(".operation-item")];
+
+  // Get the ordered list of values for the backend
+  const ordered = items
+    .filter((item) => item.querySelector('input[type="checkbox"]').checked)
+    .map((item) => item.querySelector("input").value);
+
+  orderInput.value = JSON.stringify(ordered);
+
+  // Update the visual numbering
+  items.forEach((item, index) => {
+    const indexSpan = item.querySelector(".operation-index");
+    if (indexSpan) {
+      indexSpan.textContent = `0${index + 1}`.slice(-2);
+    }
+  });
+}
+
+if (operationsList) {
+  new Sortable(operationsList, {
+    animation: 150,
+    ghostClass: "opacity-30",
+    onSort: updateOperationsOrder,
+  });
+
+  // Update order when checkboxes change
+  operationsList.querySelectorAll('input[type="checkbox"]').forEach((chk) => {
+    chk.addEventListener("change", updateOperationsOrder);
+  });
+}
