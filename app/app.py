@@ -1,3 +1,4 @@
+import json
 import os
 
 from dotenv import load_dotenv
@@ -43,11 +44,15 @@ def index():
             flash("Please select at least one operation.", "error")
             return redirect(request.url)
 
+        operations_order = request.form.get("operations_order")
+
+        try:
+            ordered_ops = json.loads(operations_order)
+        except:
+            ordered_ops = []
+
         # Validate operations against our supported list
-        valid_operations = []
-        for op in operations_list:
-            if op in SUPPORTED_OPERATIONS:
-                valid_operations.append(op)
+        valid_operations = [op for op in ordered_ops if op in SUPPORTED_OPERATIONS]
 
         if not valid_operations:
             flash("No valid operations selected.", "error")

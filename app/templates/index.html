@@ -171,12 +171,13 @@
                         </div>
 
                         <!-- Right: Processing Pipeline -->
+                        <input type="hidden" name="operations_order" id="operations_order">
                         <div class="flex flex-col">
                             <label class="block text-xs text-gray-400 uppercase tracking-wider mb-3">
                                 02. PROCESSING PIPELINE
                             </label>
                             <div class="bg-black border border-gray-800 rounded-sm p-2 flex-1 overflow-y-auto">
-                                <div class="space-y-1">
+                                <div id = "operations-list" class="space-y-1">
                                     {% for value, name in operations.items() %}
                                     <label class="flex items-center justify-between cursor-pointer group operation-item p-2 rounded-sm transition-colors">
                                         <input type="checkbox" name="operations" value="{{ value }}" class="hidden peer">
@@ -184,8 +185,6 @@
                                             <span class="text-xs text-gray-500 w-6 operation-index transition-colors">0{{ loop.index }}</span>
                                             <span class="text-sm text-gray-300 group-hover:text-white operation-text transition-colors">{{ name }}</span>
                                         </div>
-                                        
-                                        <!-- Toggle switch is also a sibling -->
                                         <div class="toggle-switch"></div>
                                     </label>
                                     {% endfor %}
@@ -261,8 +260,8 @@
         </div>
     </div>
 
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 <script src="{{ url_for('static', filename='js/main.js') }}"></script>
-
 <script>
     {% if original_url and processed_url and original_analysis_url and processed_analysis_url %}
     window.addEventListener('load', function() {
